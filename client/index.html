@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <!-- <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script> -->
+    <script src="webrtc.js"></script>
+</head>
+
+<body>
+    
+    <div>
+        <span id="username"></span>
+        <button onclick="login()" id="loginButton" name="loginButton" class="buttonright">
+            Login
+        </button>
+        <button onclick="startServerStream()" id="serverButton" name="serverButton" class="buttonright">
+            startServerStream
+        </button>
+    </div>
+
+    <div>
+        Current List Of Users
+        <div id="currentUserList">
+        </div>
+    </div>
+    <div class="messagebox">
+        <label for="message">Enter a message:
+            <input type="text" name="message" id="message" placeholder="Message text" inputmode="latin" size=60
+                maxlength=120>
+        </label>
+        <button onclick="sendMessage()" id="sendButton" name="sendButton" class="buttonright">
+            Send
+        </button>
+    </div>
+    <div class="messagebox" id="receivebox">
+        <p>Messages received:</p>
+    </div>
+
+    <br />
+
+    <input type="button" id="start" onclick="handleConnection()" value="Start SEND Data Channel"></input>
+
+
+    <img id="testStream" style="width:50%; height:auto"/>
+    <script type="text/javascript">
+        pageReady();
+    </script>
+</body>
+
+</html>
