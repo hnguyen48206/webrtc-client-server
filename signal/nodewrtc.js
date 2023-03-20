@@ -24,6 +24,7 @@ module.exports = class nodewrtc {
     myFFStream;
     streamHasInited;
     sendChannelReady;
+    cachedLast5Frames;
     constructor(clientID, streamURL) {
         this.streamHasInited = false
         this.sendChannelReady = false;
@@ -38,6 +39,7 @@ module.exports = class nodewrtc {
         this.serverConnection.onopen = () => {
             this.login();
         };
+        this.cachedLast5Frames=[]
     }
     login = () => {
         this.sendMessageToServer({
@@ -140,7 +142,8 @@ module.exports = class nodewrtc {
     }
     handleConnection = () => {
         console.log('Trying to connect to ', this.clientID)
-        this.sendChannel = this.peerConnection_local.createDataChannel(this.serverID);
+        this.sendChannel = this.peerConnection_local.createDataChannel(this.serverID, {ordered: false,
+            maxRetransmits: 0});
         this.sendChannel.onerror = error => {
             console.log('Create SEND dta channel fail ', error)
         };
@@ -218,53 +221,91 @@ module.exports = class nodewrtc {
                 }
             }
             if (!isExist) {
-                this.myFFStream = new ffmpegStream(this.streamURL);
-                global.ffmpegStreamer.push(this.myFFStream);
+                let newStream =  new ffmpegStream(this.streamURL);
+                this.myFFStream = newStream;
+                global.ffmpegStreamer.push(newStream);
             }
         }
         else {
-            this.myFFStream = new ffmpegStream(this.streamURL);
-            global.ffmpegStreamer.push(this.myFFStream);
+            let newStream =  new ffmpegStream(this.streamURL);
+            this.myFFStream = newStream;
+            global.ffmpegStreamer.push(newStream);
         }
 
         let self = this;
         this.myFFStream.startStream();
         this.myFFStream.eventEmitter.on('newFrame', function (frame) {
-            self.streamData(frame);
+            if(self.cachedLast5Frames !=null)
+            {
+                if(!self.cachedLast5Frames.includes(frame))
+                {
+                    if(self.cachedLast5Frames.length==5)
+                    self.cachedLast5Frames.shift();
+                    
+                    self.cachedLast5Frames.push(frame);
+                    
+                    self.streamData(frame);
+                }               
+                else
+                console.log('Trùng frame')
+            }
+            // self.streamData(frame);
         });
     }
     streamData = (frame) => {
         console.log('Sending new frame to client')
+        //Sending data in 16KB chunk
         try {
+            //First signal the frame start
             if (this.sendChannel.bufferedAmount > 0)
                 return;
             this.sendChannel.send(JSON.stringify({
-                type: 'frame',
-                frame: frame
+                type: 'frame_start'
             }));
+
+            //Then, chunk the frame and send parts till all chunks have been out
+            let chunks = []
+            for (var i = 0, charsLength = frame.length; i < charsLength; i += 4100) {
+                chunks.push(frame.substring(i, i + 4100));
+            }
+            chunks.forEach(chunk => {
+                if (this.sendChannel.bufferedAmount > 0)
+                    return;
+                this.sendChannel.send(JSON.stringify({
+                    type: 'frame_part',
+                    chunk: chunk
+                }));
+            });
+
+            //Last, signal the frame end
+            if (this.sendChannel.bufferedAmount > 0)
+                return;
+            this.sendChannel.send(JSON.stringify({
+                type: 'frame_end'
+            }));
+
         } catch (error) {
             console.log(error)
         }
-
     }
     handleDataChannelMessageReceived = ({ data }) => {
         const message = JSON.parse(data);
         console.log('New Message Recieved ', message);
     }
-    // chunkBufferTo16KBsArray(buf, maxBytes) {
-    //     buf
-    //     let result = [];
-    //     while (buf.length) {
-    //         let i = buf.lastIndexOf(32, maxBytes + 1);
-    //         // If no space found, try forward search
-    //         if (i < 0) i = buf.indexOf(32, maxBytes);
-    //         // If there's no space at all, take the whole string
-    //         if (i < 0) i = buf.length;
-    //         // This is a safe cut-off point; never half-way a multi-byte
-    //         result.push(buf.slice(0, i).toString());
-    //         buf = buf.slice(i + 1); // Skip space (if any)
-    //     }
-    //     return result;
+    chunkBufferTo16KBsArray(buf, maxBytes) {
+        buf
+        let result = [];
+        while (buf.length) {
+            let i = buf.lastIndexOf(32, maxBytes + 1);
+            // If no space found, try forward search
+            if (i < 0) i = buf.indexOf(32, maxBytes);
+            // If there's no space at all, take the whole string
+            if (i < 0) i = buf.length;
+            // This is a safe cut-off point; never half-way a multi-byte
+            result.push(buf.slice(0, i).toString());
+            buf = buf.slice(i + 1); // Skip space (if any)
+        }
+        return result;
 
-    // }
+    }
 }

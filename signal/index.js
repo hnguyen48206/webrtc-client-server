@@ -125,11 +125,6 @@ wss.on("connection", ws => {
         break;
       case "startServerStream":
         // Nhận data từ client với cấu trúc
-        // {
-        //   type
-        //   clientID,
-        //   streamURL
-        // }
         global.serverUsers.push(
           new nodewrtc(data.clientID, data.streamURL)
         )

@@ -25,6 +25,10 @@ var messageInputBox = null;
 var receiveBox = null;
 var isSocketOpened = false;
 var videoOutput
+
+var isFrameStartRecieved = false;
+var frameChunks = []
+
 function pageReady() {
 
     sendButton = document.getElementById('sendButton');
@@ -181,7 +185,6 @@ function onOffer(data) {
                 });
         }
         )
-
 }
 
 const onAnswer = ({ answer }) => {
@@ -220,24 +223,47 @@ const removeUser = ({ user }) => {
 }
 const handleDataChannelMessageReceived = ({ data }) => {
     const message = JSON.parse(data);
-    if(message.type == 'frame')
-    {
-        console.log('New Frame Recieved ', message);
-        setTimeout(() => {
-            videoOutput.src='data:image/jpeg;base64,' + message.frame
-        }, 1000);
+    // if (message.type == 'frame') {
+    //     console.log('New Frame Recieved ', message);
+    //     setTimeout(() => {
+    //         videoOutput.src = 'data:image/jpeg;base64,' + message.frame
+    //     }, 1000);
+    // }
+    // else
+    //     console.log('New Message Recieved ', message);
+
+    //-----------------------------Recieve Chunks Frame
+    switch (message.type) {
+        case 'frame_start':
+            if(!isFrameStartRecieved)
+            isFrameStartRecieved=true;
+            break;
+        case 'frame_part':
+            if(isFrameStartRecieved)
+            frameChunks.push(message.chunk)
+            break;
+        case 'frame_end':
+            if(isFrameStartRecieved)
+            {
+                let completeFrame = frameChunks.join("");
+                console.log('attached frame',completeFrame);
+                videoOutput.src = 'data:image/jpeg;base64,' + completeFrame;
+                frameChunks = []
+                isFrameStartRecieved=false;
+            }
+            break;
+        default:
+            break;
     }
-    else
-    console.log('New Message Recieved ', message);
 };
 
-function startServerStream()
-{
+function startServerStream() {
     console.log(myName)
     sendMessageToServer({
         type: "startServerStream",
         clientID: myName,
-        streamURL: 'rtsp://10.159.12.183:8554/getFile.265'
+        streamURL: document.getElementById('stream_url').value
+        // streamURL: 'rtsp://10.159.12.183:8554/getFile.265'
         // streamURL:'rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mp4'
         // streamURL:'rtsp://admin:Vnpt@123@192.168.0.65:554/ch1/main/av_stream'
     })

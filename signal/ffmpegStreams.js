@@ -38,6 +38,7 @@ module.exports = class ffmpegStream {
                 }
                 // self.eventEmitter.emit('newFrame', data)
             }
+            
         });
         this.child.stderr.on('data', function (data) {
             console.log('FFmpeg Error ---- ', data);
@@ -61,7 +62,9 @@ module.exports = class ffmpegStream {
             return [
                 '-loglevel', 'quiet',
                 '-i', inputStream,
-                // '-r', '10',
+                '-r', '24',
+                '-vf', 'mpdecimate,setpts=N/FRAME_RATE/TB',
+                '-vsync', '0',
                 '-q:v', '3',
                 '-f', 'image2',
                 '-update', '1',
@@ -72,7 +75,9 @@ module.exports = class ffmpegStream {
                 '-loglevel', 'quiet',
                 '-ss', startTime,
                 '-i', inputStream,
-                // '-r', '10',
+                '-vf', 'mpdecimate,setpts=N/FRAME_RATE/TB',
+                '-vsync', '0',
+                '-r', '24',
                 '-q:v', '3',
                 '-f', 'image2',
                 '-update', '1',
